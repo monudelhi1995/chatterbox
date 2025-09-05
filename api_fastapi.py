@@ -29,8 +29,8 @@ app = FastAPI(lifespan=lifespan)
 
 model: ChatterboxTTS | None = None
 
-@app.post("/synthesize")
-async def synthesize(text: str = Query(..., min_length=1)):
+@app.post("/TTS")
+async def TTS(text: str = Query(..., min_length=1)):
     if not text or not text.strip():
         raise HTTPException(status_code=400, detail="text is required")
 
@@ -41,10 +41,6 @@ async def synthesize(text: str = Query(..., min_length=1)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"synthesis failed: {e}")
 
-    if not os.path.exists(out_name):
-        raise HTTPException(status_code=500, detail="output file was not created")
-
-    # no background cleanup: caller or external process must manage generated files
     return FileResponse(out_name, media_type="audio/wav", filename="NovelAudio.wav")
 
 if __name__ == "__main__":
