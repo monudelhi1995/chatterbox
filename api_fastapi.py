@@ -29,7 +29,7 @@ def split_text_into_chunks(text: str, max_words: int = 170):
     if not text:
         return []
     # Split sentences on ., !, ? followed by whitespace or end
-    sentences = re.split(r'(?<=[.|!?])\s+', text)
+    sentences = re.split(r'(?<=[.।!?])\s+', text)
     chunks = []
     current = []
     current_words = 0
