@@ -14,8 +14,8 @@ else:
 print(f"Using device: {device}")
 
 multilingual_model = ChatterboxMultilingualTTS.from_pretrained(device=device)
-text = "एक गाँव में रामू नाम का एक लालची किसान रहता था. वह हमेशा और अधिक ज़मीन और धन चाहता था. एक दिन, उसे एक सुनहरी अंगूठी मिली. अंगूठी जादुई थी और कुछ भी मांग सकती थी. लालच में, रामू ने हर दिन और अधिक खजाना मांगा। वह अमीर हो गया, लेकिन उसने अपना असली घर और परिवार छोड़ दिया। एक दिन, जादुई अंगूठी ने उसे एक विशाल सोने के ढेर के नीचे दफन कर दिया। लालच ने उसका अंत कर दिया, और वह हमेशा के लिए उस सुनहरी ढेर के नीचे सो गया। "
-wav = multilingual_model.generate(text, language_id="hi", audio_prompt_path="HindiRefRJ.wav", exaggeration=2)
+text = "दिल्ली की ठंडी सर्दियों में राविन और खुशी मिले। दोनों छात्र थे और उनकी दोस्ती एक नए रिश्ते की शुरुआत बनी। कैंपस की सादी ज़िंदगी में उन्हें पहली मोहब्बत का एहसास हुआ। यह मासूमियत और नए सपनों का समय था।"
+wav = multilingual_model.generate(text, language_id="hi", audio_prompt_path="HindiRefRJ.wav", exaggeration=0, cfg_weight = 1.0, temperature=0.05)
 ta.save("test-2.wav", wav, multilingual_model.sr)
 
 '''

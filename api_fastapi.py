@@ -6,22 +6,8 @@ from chatterbox.mtl_tts import ChatterboxMultilingualTTS
 from contextlib import asynccontextmanager
 import re
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    global device, multilingual_model
-    if torch.cuda.is_available():
-        device = "cuda"
-    elif torch.backends.mps.is_available():
-        device = "mps"
-    else:
-        device = "cpu"
 
-    print("[api_fastapi] startup: loading model, device=", device)
-    multilingual_model = ChatterboxMultilingualTTS.from_pretrained(device=torch.device(device))
-    print("[api_fastapi] model loaded")
-    yield
-
-app = FastAPI(lifespan=lifespan)
+app = FastAPI()
 
 # Split text into sentence-preserving chunks of approximately max_words
 def split_text_into_chunks(text: str, max_words: int = 170):
@@ -69,6 +55,17 @@ async def TTS(
     text: str = Query(..., min_length=1),
     language: str = Query("hi", min_length=2, max_length=2)
 ):
+    if torch.cuda.is_available():
+        device = "cuda"
+    elif torch.backends.mps.is_available():
+        device = "mps"
+    else:
+        device = "cpu"
+
+    print("[api_fastapi] startup: loading model, device=", device)
+    multilingual_model = ChatterboxMultilingualTTS.from_pretrained(device=torch.device(device))
+    print("[api_fastapi] model loaded")
+
     if not text or not text.strip():
         raise HTTPException(status_code=400, detail="text is required")
     if language not in ("hi", "en"):
@@ -84,10 +81,10 @@ async def TTS(
         for chunk in chunks:
             if language == "hi":
                 wav = multilingual_model.generate(
-                    chunk, language_id="hi", audio_prompt_path="HindiRefRJ.wav", exaggeration=2
+                    chunk, language_id="hi", audio_prompt_path="HindiRefStory.wav", exaggeration=0, cfg_weight = 1.0, temperature=0.05
                 )
             else:  # language == 'en'
-                wav = multilingual_model.generate(chunk, language_id="en")
+                wav = multilingual_model.generate(chunk, language_id="en", exaggeration=0, cfg_weight = 1.0, temperature=0.05)
 
             t = to_audio_tensor(wav)
             audio_tensors.append(t)
@@ -105,9 +102,21 @@ async def TTS(
 
         final = torch.cat(norm_tensors, dim=1)
         ta.save(out_name, final, multilingual_model.sr)
+        # Explicitly delete tensors and model, then clear cache
+        del final
+        del norm_tensors
+        del audio_tensors
+        del multilingual_model
+        if device == "cuda":
+            torch.cuda.empty_cache()
     except HTTPException:
         raise
     except Exception as e:
+        # Also try to cleanup on error
+        if 'multilingual_model' in locals():
+            del multilingual_model
+        if device == "cuda":
+            torch.cuda.empty_cache()
         raise HTTPException(status_code=500, detail=f"synthesis failed: {e}")
 
     return FileResponse(out_name, media_type="audio/wav", filename="NovelAudio.wav")
