@@ -81,7 +81,7 @@ async def TTS(
         for chunk in chunks:
             if language == "hi":
                 wav = multilingual_model.generate(
-                    chunk, language_id="hi", audio_prompt_path="HindiRefStory.wav", exaggeration=0, cfg_weight = 1.0, temperature=0.05
+                    chunk, language_id="hi", audio_prompt_path="HindiRefF2.wav", exaggeration=1, cfg_weight = 0.3, temperature=0.05
                 )
             else:  # language == 'en'
                 wav = multilingual_model.generate(chunk, language_id="en", exaggeration=0, cfg_weight = 1.0, temperature=0.05)
@@ -124,3 +124,7 @@ async def TTS(
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
+
+# Arabic (ar) • Danish (da) • German (de) • Greek (el) • English (en) • Spanish (es) • Finnish (fi) • French (fr) • Hebrew (he) • Hindi (hi) • Italian (it) •
+# Japanese (ja) • Korean (ko) • Malay (ms) • Dutch (nl) • Norwegian (no) • Polish (pl) • Portuguese (pt) • Russian (ru)
+# • Swedish (sv) • Swahili (sw) • Turkish (tr) • Chinese (zh)
