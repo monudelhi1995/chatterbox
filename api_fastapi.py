@@ -102,6 +102,9 @@ async def TTS(
 
         final = torch.cat(norm_tensors, dim=1)
         ta.save(out_name, final, multilingual_model.sr)
+        # Print audio length in seconds
+        audio_length_sec = final.shape[1] / multilingual_model.sr
+        print(f"[api_fastapi] Audio length: {audio_length_sec:.2f} seconds")
         # Explicitly delete tensors and model, then clear cache
         del final
         del norm_tensors
@@ -119,7 +122,7 @@ async def TTS(
             torch.cuda.empty_cache()
         raise HTTPException(status_code=500, detail=f"synthesis failed: {e}")
 
-    return FileResponse(out_name, media_type="audio/wav", filename="NovelAudio.wav")
+    return FileResponse(out_name, media_type="audio/wav", filename=f"{audio_length_sec}")
 
 if __name__ == "__main__":
     import uvicorn
