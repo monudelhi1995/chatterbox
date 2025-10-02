@@ -122,7 +122,18 @@ async def TTS(
             torch.cuda.empty_cache()
         raise HTTPException(status_code=500, detail=f"synthesis failed: {e}")
 
-    return FileResponse(out_name, media_type="audio/wav", filename=f"{audio_length_sec}")
+    import datetime
+
+    # Calculate hours, minutes, seconds
+    audio_length_hr = int(audio_length_sec // 3600)
+    audio_length_min = int((audio_length_sec % 3600) // 60)
+    audio_length_s = int(audio_length_sec % 60)
+    now = datetime.datetime.now()
+    date_str = now.strftime("%d%m%Y_%H%M%S")
+    filename = f"audio_{date_str}.wav"
+
+    return FileResponse(out_name, media_type="audio/wav", filename=filename)
+
 
 if __name__ == "__main__":
     import uvicorn
