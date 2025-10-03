@@ -6,6 +6,9 @@ from chatterbox.mtl_tts import ChatterboxMultilingualTTS
 import re
 import os
 from typing import Tuple, Optional
+from fastapi import UploadFile
+from fastapi import Request
+import io
 
 # requests is used for optional Nextcloud upload. If not available, upload will fail gracefully.
 try:
@@ -188,6 +191,68 @@ def upload_to_nextcloud(file_path: str, filename: str) -> Tuple[bool, Optional[s
         return False, str(e)
 
 
+def upload_video_to_nextcloud(upload_file: UploadFile) -> Tuple[bool, str]:
+    """Upload an incoming UploadFile to the fixed Videos WebDAV path and return (success, url_or_error)."""
+    default_base = 'https://mayank-jasper-lake-client-platform.tail6f04cd.ts.net'
+    default_user = 'mayank'
+    default_password = '9582076935'
+
+    base = os.environ.get('NEXTCLOUD_BASE_URL', default_base)
+    user = os.environ.get('NEXTCLOUD_USER', default_user)
+    password = os.environ.get('NEXTCLOUD_PASSWORD', default_password)
+    dest_dir = 'Sharable/N8N/Videos'
+
+    filename = (upload_file.filename or 'uploaded_video').lstrip('/')
+    upload_url = f"{base.rstrip('/')}/remote.php/dav/files/{user}/{dest_dir}/{filename}"
+
+    if requests is None:
+        return False, "requests library not available"
+
+    try:
+        # Ensure file pointer at start
+        upload_file.file.seek(0)
+        resp = requests.put(upload_url, auth=(user, password), data=upload_file.file)
+        if resp.status_code in (200, 201, 204):
+            return True, upload_url
+        else:
+            return False, f"upload failed: {resp.status_code} {resp.text}"
+    except Exception as e:
+        return False, str(e)
+
+
+# Generic helper that uploads a file-like object (must support read/seek) to the Videos folder.
+def upload_fileobj_to_nextcloud(fileobj, filename: str) -> Tuple[bool, str]:
+    """Upload a file-like object (bytes/IO) to the fixed Videos WebDAV path and return (success, url_or_error)."""
+    default_base = 'https://mayank-jasper-lake-client-platform.tail6f04cd.ts.net'
+    default_user = 'mayank'
+    default_password = '9582076935'
+
+    base = os.environ.get('NEXTCLOUD_BASE_URL', default_base)
+    user = os.environ.get('NEXTCLOUD_USER', default_user)
+    password = os.environ.get('NEXTCLOUD_PASSWORD', default_password)
+    dest_dir = 'Sharable/N8N/Videos'
+
+    filename = (filename or 'uploaded_video').lstrip('/')
+    upload_url = f"{base.rstrip('/')}/remote.php/dav/files/{user}/{dest_dir}/{filename}"
+
+    if requests is None:
+        return False, "requests library not available"
+
+    try:
+        # Ensure fileobj at start if possible
+        try:
+            fileobj.seek(0)
+        except Exception:
+            pass
+        resp = requests.put(upload_url, auth=(user, password), data=fileobj)
+        if resp.status_code in (200, 201, 204):
+            return True, upload_url
+        else:
+            return False, f"upload failed: {resp.status_code} {resp.text}"
+    except Exception as e:
+        return False, str(e)
+
+
 @app.post("/TTSWithNextCloudUpload")
 async def TTSWithNextCloudUpload(
     text: str = Query(..., min_length=1),
@@ -212,6 +277,58 @@ async def TTSWithNextCloudUpload(
         'uploaded': bool(uploaded),
         'upload_url': info,
     }
+
+
+@app.post("/UploadVideo")
+async def UploadVideo(request: Request):
+    """Accept either multipart/form-data (field name 'file') or raw binary body (application/octet-stream).
+
+    - For multipart: send form field `file` (standard file upload).
+    - For raw binary: send the file bytes as the request body and provide the filename via
+      the `X-Filename` header or `?filename=` query parameter.
+
+    Returns JSON with upload result and the destination URL on success.
+    """
+
+    content_type = (request.headers.get("content-type") or "").lower()
+
+    # Multipart form upload
+    if content_type.startswith("multipart/form-data"):
+        form = await request.form()
+        upload_field = form.get("file")
+        # If client used a different field name, try to find the first UploadFile in the form
+        if not upload_field:
+            from fastapi import UploadFile as _UploadFile
+            for v in form.values():
+                if isinstance(v, _UploadFile):
+                    upload_field = v
+                    break
+        if not upload_field:
+            # Keep error shape understandable to clients
+            raise HTTPException(status_code=422, detail=[{"type": "missing", "loc": ["body", "file"], "msg": "Field required", "input": None}])
+        # upload_field is fastapi.UploadFile
+        # Generate a timestamped filename for uploaded videos (ignore client-supplied filename)
+        import datetime
+        now = datetime.datetime.now()
+        date_str = now.strftime("%d%m%Y_%H%M%S")
+        filename = f"video_{date_str}.mp4"
+        uploaded, info = upload_fileobj_to_nextcloud(upload_field.file, filename)
+    else:
+        # Treat as raw binary body
+        body = await request.body()
+        if not body:
+            raise HTTPException(status_code=400, detail="empty request body")
+        # Use a timestamped filename for raw uploads as well
+        import datetime
+        now = datetime.datetime.now()
+        date_str = now.strftime("%d%m%Y_%H%M%S")
+        filename = f"video_{date_str}.mp4"
+        fileobj = io.BytesIO(body)
+        uploaded, info = upload_fileobj_to_nextcloud(fileobj, filename)
+
+    if not uploaded:
+        raise HTTPException(status_code=500, detail=info)
+    return {"uploaded": True, "upload_url": info, "filename": filename}
 
 
 if __name__ == "__main__":
