@@ -1,15 +1,9 @@
 {
   "prompt": {
-    "0": {
-      "class_type": "LoadImage",
-      "inputs": {
-        "image": "{{ $json.name }}"
-      }
-    },
     "1": {
       "class_type": "CheckpointLoaderSimple",
       "inputs": {
-        "ckpt_name": "wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors"
+        "ckpt_name": "wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors"
       }
     },
     "1a": {
@@ -17,7 +11,7 @@
       "inputs": {
         "model": ["1", 0],
         "strength_model": 1.0,
-        "lora_name": "wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors"
+        "lora_name": "wan2.2_t2v_lightx2v_4steps_lora_v1.1_high_noise.safetensors"
       }
     },
     "2": {
@@ -44,7 +38,7 @@
       "class_type": "CLIPTextEncode",
       "inputs": {
         "clip": ["3", 0],
-        "text": {{ JSON.stringify($('Loop Over Items').item.json.PhotoToVideoPrompt) }}
+        "text": {{ JSON.stringify($('When Executed by Another Workflow').item.json.discription) }}
       }
     },
     "6": {
@@ -55,15 +49,11 @@
       }
     },
     "7": {
-      "class_type": "WanImageToVideo",
+      "class_type": "EmptyHunyuanLatentVideo",
       "inputs": {
-        "positive": ["5", 0],
-        "negative": ["6", 0],
-        "vae": ["4", 0],
-        "start_image": ["0", 0],
         "width": 480,
         "height": 854,
-        "length": {{ $('Loop Over Items').item.json.VideoLength*12 }},
+        "length": 61,
         "batch_size": 1
       }
     },
@@ -71,9 +61,9 @@
       "class_type": "KSamplerAdvanced",
       "inputs": {
         "model": ["2", 0],
-        "positive": ["7", 0],
-        "negative": ["7", 1],
-        "latent_image": ["7", 2],
+        "positive": ["5", 0],
+        "negative": ["6", 0],
+        "latent_image": ["7", 0],
         "add_noise": "enable",
         "noise_seed": 82647644383779,
         "control_after_generate": "randomize",
@@ -89,7 +79,7 @@
     "12": {
       "class_type": "CheckpointLoaderSimple",
       "inputs": {
-        "ckpt_name": "wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors"
+        "ckpt_name": "wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors"
       }
     },
     "12a": {
@@ -97,7 +87,7 @@
       "inputs": {
         "model": ["12", 0],
         "strength_model": 1.0,
-        "lora_name": "wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors"
+        "lora_name": "wan2.2_t2v_lightx2v_4steps_lora_v1.1_low_noise.safetensors"
       }
     },
     "13": {
@@ -111,8 +101,8 @@
       "class_type": "KSamplerAdvanced",
       "inputs": {
         "model": ["13", 0],
-        "positive": ["7", 0],
-        "negative": ["7", 1],
+        "positive": ["5", 0],
+        "negative": ["6", 0],
         "latent_image": ["8", 0],
         "add_noise": "disable",
         "noise_seed": 968209799298920,

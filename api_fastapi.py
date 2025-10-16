@@ -9,6 +9,7 @@ from typing import Tuple, Optional
 from fastapi import UploadFile
 from fastapi import Request
 import io
+from urllib.parse import urlsplit, urlunsplit
 
 # requests is used for optional Nextcloud upload. If not available, upload will fail gracefully.
 try:
@@ -147,6 +148,24 @@ async def TTS(
     return FileResponse(out_path, media_type="audio/wav", filename=filename)
 
 
+# Helper: return a URL with embedded credentials (user:password@host). We only use this for the returned
+# user-facing URL; requests.put still uses HTTP Basic Auth to send the credentials instead of embedding.
+def embed_credentials_in_url(url: str, user: Optional[str], password: Optional[str]) -> str:
+    try:
+        parts = urlsplit(url)
+        # parts.hostname excludes any credentials, so use it to build a clean netloc
+        hostname = parts.hostname or ''
+        port = f":{parts.port}" if parts.port else ''
+        if user is None:
+            return url
+        pwd = password or ''
+        netloc = f"{user}:{pwd}@{hostname}{port}"
+        new_url = urlunsplit((parts.scheme, netloc, parts.path, parts.query, parts.fragment))
+        return new_url
+    except Exception:
+        return url
+
+
 # Helper to upload file to Nextcloud using environment variables. Optional and best-effort.
 def upload_to_nextcloud(file_path: str, filename: str) -> Tuple[bool, Optional[str]]:
     # Preferred full destination URL (including filename): NEXTCLOUD_UPLOAD_URL
@@ -184,7 +203,8 @@ def upload_to_nextcloud(file_path: str, filename: str) -> Tuple[bool, Optional[s
             # Use HTTP PUT with basic auth
             resp = requests.put(upload_url, auth=(auth_user, auth_pass), data=fh)
         if resp.status_code in (200,201,204):
-            return True, upload_url
+            # Return a URL which embeds credentials so it can be opened directly without separate Basic Auth
+            return True, embed_credentials_in_url(upload_url, auth_user, auth_pass)
         else:
             return False, f"upload failed: {resp.status_code} {resp.text}"
     except Exception as e:
@@ -213,7 +233,7 @@ def upload_video_to_nextcloud(upload_file: UploadFile) -> Tuple[bool, str]:
         upload_file.file.seek(0)
         resp = requests.put(upload_url, auth=(user, password), data=upload_file.file)
         if resp.status_code in (200, 201, 204):
-            return True, upload_url
+            return True, embed_credentials_in_url(upload_url, user, password)
         else:
             return False, f"upload failed: {resp.status_code} {resp.text}"
     except Exception as e:
@@ -246,7 +266,7 @@ def upload_fileobj_to_nextcloud(fileobj, filename: str) -> Tuple[bool, str]:
             pass
         resp = requests.put(upload_url, auth=(user, password), data=fileobj)
         if resp.status_code in (200, 201, 204):
-            return True, upload_url
+            return True, embed_credentials_in_url(upload_url, user, password)
         else:
             return False, f"upload failed: {resp.status_code} {resp.text}"
     except Exception as e:
