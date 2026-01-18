@@ -50,3 +50,4 @@ checkpoints/
 
 # Do not ignore the root reference.wav file
 !/reference.wav
+uv.lock
