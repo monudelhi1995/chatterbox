@@ -45,9 +45,8 @@ checkpoints/
 .gradio
 
 # Ignore generated sample .wav files
-**/*.wav
 /.idea
 
 # Do not ignore the root reference.wav file
-!/reference.wav
 uv.lock
+/Output
